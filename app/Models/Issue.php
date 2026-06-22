@@ -53,4 +53,27 @@ class Issue extends Model
     {
         return self::STATUSES[$this->status] ?? $this->status;
     }
+
+    public function modalData(): array
+    {
+        $this->loadMissing(['project', 'tags']);
+
+        return [
+            'id' => $this->id,
+            'title' => $this->title,
+            'description' => $this->description,
+            'status' => $this->status,
+            'statusLabel' => $this->statusLabel(),
+            'priority' => $this->priority,
+            'dueDate' => $this->due_date?->format('M j, Y'),
+            'project' => $this->project->name,
+            'tags' => $this->tags->map(fn (Tag $tag) => [
+                'name' => $tag->name,
+                'color' => $tag->color ?? '#8e8e93',
+            ])->values()->all(),
+            'editUrl' => route('issues.edit', $this),
+            'deleteUrl' => route('issues.destroy', $this),
+            'showUrl' => route('issues.show', $this),
+        ];
+    }
 }
