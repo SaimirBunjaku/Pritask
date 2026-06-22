@@ -12,6 +12,15 @@ class Issue extends Model
 {
     use HasFactory;
 
+    public const STATUSES = [
+        'todo' => 'To Do',
+        'in_progress' => 'In Progress',
+        'blocked' => 'Blocked',
+        'qa_staging' => 'QA Staging',
+        'qa_done' => 'QA Done',
+        'prod' => 'Prod',
+    ];
+
     protected $fillable = [
         'project_id',
         'title',
@@ -38,5 +47,10 @@ class Issue extends Model
     public function tags(): BelongsToMany
     {
         return $this->belongsToMany(Tag::class);
+    }
+
+    public function statusLabel(): string
+    {
+        return self::STATUSES[$this->status] ?? $this->status;
     }
 }

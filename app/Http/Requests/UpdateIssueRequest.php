@@ -2,7 +2,9 @@
 
 namespace App\Http\Requests;
 
+use App\Models\Issue;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateIssueRequest extends FormRequest
 {
@@ -17,7 +19,7 @@ class UpdateIssueRequest extends FormRequest
             'project_id' => ['required', 'exists:projects,id'],
             'title' => ['required', 'string', 'max:255'],
             'description' => ['nullable', 'string'],
-            'status' => ['required', 'in:open,in_progress,closed'],
+            'status' => ['required', Rule::in(array_keys(Issue::STATUSES))],
             'priority' => ['required', 'in:low,medium,high'],
             'due_date' => ['nullable', 'date'],
         ];

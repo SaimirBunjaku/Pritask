@@ -29,7 +29,7 @@
     @forelse ($project->issues as $issue)
         <div class="card">
             <span>{{ $issue->title }}</span>
-            <span class="badge badge-{{ $issue->status }}">{{ str_replace('_', ' ', $issue->status) }}</span>
+            <span class="badge badge-{{ $issue->status }}">{{ $issue->statusLabel() }}</span>
             <span class="badge badge-{{ $issue->priority }}">{{ $issue->priority }}</span>
         </div>
     @empty
