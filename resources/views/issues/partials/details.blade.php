@@ -12,13 +12,7 @@
     @endif
 </div>
 
-@if ($issue->tags->isNotEmpty())
-    <div class="modal-tags">
-        @foreach ($issue->tags as $tag)
-            <span class="tag-pill" style="--tag-color: {{ $tag->color ?? '#8e8e93' }}">{{ $tag->name }}</span>
-        @endforeach
-    </div>
-@endif
+@include('issues.partials.issue-tags', ['issue' => $issue, 'allTags' => $allTags])
 
 <p>{{ $issue->description ?? 'No description provided.' }}</p>
 
