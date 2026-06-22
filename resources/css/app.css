@@ -269,9 +269,12 @@ textarea.form-control {
     margin-left: 8px;
 }
 
-.badge-open { background: rgba(52, 199, 89, 0.12); color: #1f8a3d; }
+.badge-todo { background: rgba(142, 142, 147, 0.16); color: #636366; }
 .badge-in_progress { background: rgba(255, 159, 10, 0.14); color: #b9650b; }
-.badge-closed { background: rgba(142, 142, 147, 0.16); color: #636366; }
+.badge-blocked { background: rgba(255, 59, 48, 0.12); color: #d70015; }
+.badge-qa_staging { background: rgba(175, 82, 222, 0.14); color: #8e44ca; }
+.badge-qa_done { background: rgba(50, 173, 230, 0.14); color: #0a84ae; }
+.badge-prod { background: rgba(52, 199, 89, 0.12); color: #1f8a3d; }
 
 .badge-low { background: rgba(0, 113, 227, 0.1); color: #0071e3; }
 .badge-medium { background: rgba(255, 159, 10, 0.14); color: #b9650b; }
