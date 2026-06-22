@@ -16,8 +16,9 @@ class IssueController extends Controller
     {
         $issues = Issue::with(['project', 'tags'])->latest()->get();
         $tags = Tag::orderBy('name')->get();
+        $projects = Project::orderBy('name')->get();
 
-        return view('issues.index', compact('issues', 'tags'));
+        return view('issues.index', compact('issues', 'tags', 'projects'));
     }
 
     public function create()
@@ -38,8 +39,9 @@ class IssueController extends Controller
     public function show(Issue $issue)
     {
         $issue->load(['project', 'tags']);
+        $allTags = Tag::orderBy('name')->get();
 
-        return view('issues.partials.details', compact('issue'));
+        return view('issues.partials.details', compact('issue', 'allTags'));
     }
 
     public function edit(Issue $issue)
@@ -64,8 +66,15 @@ class IssueController extends Controller
         ]);
 
         $issue->update($validated);
+        $issue->load(['project', 'tags']);
 
-        return response()->json(['status' => $issue->status]);
+        return response()->json([
+            'status' => $issue->status,
+            'statusLabel' => $issue->statusLabel(),
+            'card' => view('issues.partials.card', compact('issue'))->render(),
+            'projectRow' => view('issues.partials.project-issue-row', compact('issue'))->render(),
+            'modalData' => $issue->modalData(),
+        ]);
     }
 
     public function destroy(Issue $issue)
@@ -73,5 +82,33 @@ class IssueController extends Controller
         $issue->delete();
 
         return response()->noContent();
+    }
+
+    public function attachTag(Issue $issue, Tag $tag)
+    {
+        if (! $issue->tags()->whereKey($tag->id)->exists()) {
+            $issue->tags()->attach($tag);
+        }
+
+        return $this->tagSyncResponse($issue);
+    }
+
+    public function detachTag(Issue $issue, Tag $tag)
+    {
+        $issue->tags()->detach($tag);
+
+        return $this->tagSyncResponse($issue);
+    }
+
+    private function tagSyncResponse(Issue $issue)
+    {
+        $issue->load(['project', 'tags']);
+        $allTags = Tag::orderBy('name')->get();
+
+        return response()->json([
+            'issueTags' => view('issues.partials.issue-tags', compact('issue', 'allTags'))->render(),
+            'card' => view('issues.partials.card', compact('issue'))->render(),
+            'modalData' => $issue->modalData(),
+        ]);
     }
 }
