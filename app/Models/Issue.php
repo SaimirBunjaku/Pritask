@@ -67,7 +67,9 @@ class Issue extends Model
             'priority' => $this->priority,
             'dueDate' => $this->due_date?->format('M j, Y'),
             'project' => $this->project->name,
+            'projectId' => $this->project_id,
             'tags' => $this->tags->map(fn (Tag $tag) => [
+                'id' => $tag->id,
                 'name' => $tag->name,
                 'color' => $tag->color ?? '#8e8e93',
             ])->values()->all(),
