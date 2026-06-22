@@ -1,5 +1,6 @@
 <div class="issue-card"
      data-id="{{ $issue->id }}"
+     data-project-id="{{ $issue->project_id }}"
      data-status="{{ $issue->status }}"
      data-priority="{{ $issue->priority }}"
      data-tags="{{ $issue->tags->pluck('id')->implode(',') }}"
