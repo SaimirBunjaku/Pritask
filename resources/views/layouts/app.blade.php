@@ -3,6 +3,7 @@
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>@yield('title', 'Pritask')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
@@ -18,5 +19,13 @@
 
         @yield('content')
     </main>
+
+    <div class="modal-backdrop" id="issue-modal-backdrop">
+        <div class="modal" id="issue-modal">
+            <div id="issue-modal-body"></div>
+        </div>
+    </div>
+
+    @stack('scripts')
 </body>
 </html>

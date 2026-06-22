@@ -31,7 +31,7 @@ class ProjectController extends Controller
 
     public function show(Project $project)
     {
-        $project->load(['issues' => fn ($query) => $query->latest()]);
+        $project->load(['issues' => fn ($query) => $query->with(['project', 'tags'])->latest()]);
 
         return view('projects.show', compact('project'));
     }

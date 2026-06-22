@@ -27,7 +27,10 @@
     <h2>Issues</h2>
 
     @forelse ($project->issues as $issue)
-        <div class="card">
+        <div class="card card-clickable"
+             data-action="open-issue"
+             data-url="{{ route('issues.show', $issue) }}"
+             data-issue='@json($issue->modalData())'>
             <span>{{ $issue->title }}</span>
             <span class="badge badge-{{ $issue->status }}">{{ $issue->statusLabel() }}</span>
             <span class="badge badge-{{ $issue->priority }}">{{ $issue->priority }}</span>
