@@ -12,7 +12,7 @@ class IndexIssueRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user() !== null;
     }
 
     public function rules(): array
@@ -22,6 +22,7 @@ class IndexIssueRequest extends FormRequest
             'status' => ['nullable', 'string', Rule::in(array_keys(Issue::STATUSES))],
             'priority' => ['nullable', 'string', Rule::in(['low', 'medium', 'high'])],
             'tag' => ['nullable', 'integer', Rule::exists(Tag::class, 'id')],
+            'search' => ['nullable', 'string', 'max:100'],
         ];
     }
 }

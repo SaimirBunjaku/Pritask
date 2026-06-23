@@ -45,4 +45,14 @@ class IndexIssueRequestTest extends TestCase
             $this->assertFalse($validator->fails(), "Expected status [{$status}] to be valid.");
         }
     }
+
+    public function test_accepts_search_param(): void
+    {
+        $validator = Validator::make(
+            ['search' => 'login bug'],
+            (new IndexIssueRequest)->rules()
+        );
+
+        $this->assertFalse($validator->fails());
+    }
 }
