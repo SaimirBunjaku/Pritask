@@ -36,8 +36,6 @@ export function initProjectShow() {
         document.title = data.title;
         root.dataset.currentUrl = data.url;
 
-        sessionStorage.setItem('boardProjectFilter', String(data.projectId));
-
         if (pushState) {
             history.pushState({ projectShowUrl: data.url }, data.title, data.url);
         }
@@ -101,8 +99,4 @@ export function initProjectShow() {
 
         loadProject(url, { pushState: false, syncSelect: true });
     });
-
-    if (window.location.search.includes('project=')) {
-        sessionStorage.setItem('boardProjectFilter', new URLSearchParams(window.location.search).get('project'));
-    }
 }

@@ -1009,6 +1009,12 @@ textarea.form-control {
     overflow-x: auto;
     scroll-padding-inline: 24px;
     padding-bottom: 16px;
+    transition: opacity 0.15s ease;
+}
+
+.board-viewport.is-filtering {
+    opacity: 0.65;
+    pointer-events: none;
 }
 
 .board {

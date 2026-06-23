@@ -3,25 +3,35 @@
 @section('title', 'Issues')
 
 @section('content')
+    @php
+        $filters = $filters ?? [];
+    @endphp
+
     <div class="page-header">
         <h1>Issues</h1>
-        <div class="board-toolbar">
-            <select id="filter-project" class="form-control form-control-sm select-enhanced">
+        <div class="board-toolbar" id="board-toolbar">
+            <select id="filter-project" class="form-control form-control-sm select-enhanced" data-board-filter>
                 <option value="">All projects</option>
                 @foreach ($projects as $project)
-                    <option value="{{ $project->id }}">{{ $project->name }}</option>
+                    <option value="{{ $project->id }}" @selected(($filters['project'] ?? '') == $project->id)>{{ $project->name }}</option>
                 @endforeach
             </select>
-            <select id="filter-priority" class="form-control form-control-sm select-enhanced">
-                <option value="">All priorities</option>
-                <option value="low" data-badge="low">Low</option>
-                <option value="medium" data-badge="medium">Medium</option>
-                <option value="high" data-badge="high">High</option>
+            <select id="filter-status" class="form-control form-control-sm select-enhanced" data-board-filter>
+                <option value="">All statuses</option>
+                @foreach (\App\Models\Issue::STATUSES as $value => $label)
+                    <option value="{{ $value }}" data-badge="{{ $value }}" @selected(($filters['status'] ?? '') === $value)>{{ $label }}</option>
+                @endforeach
             </select>
-            <select id="filter-tag" class="form-control form-control-sm select-enhanced">
+            <select id="filter-priority" class="form-control form-control-sm select-enhanced" data-board-filter>
+                <option value="">All priorities</option>
+                <option value="low" data-badge="low" @selected(($filters['priority'] ?? '') === 'low')>Low</option>
+                <option value="medium" data-badge="medium" @selected(($filters['priority'] ?? '') === 'medium')>Medium</option>
+                <option value="high" data-badge="high" @selected(($filters['priority'] ?? '') === 'high')>High</option>
+            </select>
+            <select id="filter-tag" class="form-control form-control-sm select-enhanced" data-board-filter>
                 <option value="">All tags</option>
                 @foreach ($tags as $tag)
-                    <option value="{{ $tag->id }}" data-swatch="{{ $tag->color ?? '#8e8e93' }}">{{ $tag->name }}</option>
+                    <option value="{{ $tag->id }}" data-swatch="{{ $tag->color ?? '#8e8e93' }}" @selected(($filters['tag'] ?? '') == $tag->id)>{{ $tag->name }}</option>
                 @endforeach
             </select>
             <button type="button" class="btn btn-primary" id="new-issue-btn">New Issue</button>
@@ -30,21 +40,7 @@
 
     <div class="board-viewport"
          data-all-tags='@json($tags->map(fn ($tag) => ["id" => $tag->id, "name" => $tag->name, "color" => $tag->color ?? "#8e8e93"]))'>
-        <div class="board" id="board">
-            @foreach (\App\Models\Issue::STATUSES as $value => $label)
-                <div class="board-column">
-                    <div class="board-column-body" data-status="{{ $value }}">
-                        <div class="board-column-header">
-                            <span>{{ $label }}</span>
-                            <span class="board-column-count">{{ $issues->where('status', $value)->count() }}</span>
-                        </div>
-                        @foreach ($issues->where('status', $value) as $issue)
-                            @include('issues.partials.card', ['issue' => $issue])
-                        @endforeach
-                    </div>
-                </div>
-            @endforeach
-        </div>
+        @include('issues.partials.board', ['issues' => $issues])
     </div>
 @endsection
 
