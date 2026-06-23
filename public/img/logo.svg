@@ -1,0 +1,28 @@
+<svg width="512" height="512" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="pritaskBlue" x1="48" y1="34" x2="204" y2="214" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#1674FF"/>
+      <stop offset="0.55" stop-color="#2D5BFF"/>
+      <stop offset="1" stop-color="#6B35F5"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Pritask icon only, transparent background -->
+  <path fill="url(#pritaskBlue)" d="
+    M72 35
+    H166
+    C202 35 229 62 229 98
+    V152
+    C229 175 211 194 188 194
+    H184
+    C173 194 164 185 164 174
+    V121
+    C164 109 154 99 142 99
+    H72
+    C62 99 54 91 54 81
+    V53
+    C54 43 62 35 72 35
+    Z"/>
+
+  <rect x="48" y="136" width="74" height="82" rx="17" fill="url(#pritaskBlue)"/>
+</svg>
