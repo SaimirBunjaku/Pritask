@@ -4,6 +4,7 @@ namespace Database\Factories;
 
 use App\Models\Comment;
 use App\Models\Issue;
+use App\Models\User;
 use Illuminate\Database\Eloquent\Factories\Factory;
 
 /**
@@ -33,6 +34,7 @@ class CommentFactory extends Factory
     {
         return [
             'issue_id' => Issue::factory(),
+            'user_id' => User::factory(),
             'author_name' => fake()->firstName(),
             'body' => fake()->randomElement(self::$catalog),
         ];

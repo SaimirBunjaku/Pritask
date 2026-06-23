@@ -12,6 +12,7 @@ class Comment extends Model
 
     protected $fillable = [
         'issue_id',
+        'user_id',
         'author_name',
         'body',
     ];
@@ -19,5 +20,10 @@ class Comment extends Model
     public function issue(): BelongsTo
     {
         return $this->belongsTo(Issue::class);
+    }
+
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
     }
 }

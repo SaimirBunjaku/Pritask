@@ -9,9 +9,17 @@ use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Project::class, 'project');
+    }
+
     public function index()
     {
-        $projects = Project::withCount('issues')->latest()->paginate(10);
+        $projects = Project::with('owner')
+            ->withCount('issues')
+            ->latest()
+            ->paginate(10);
 
         return view('projects.index', compact('projects'));
     }
@@ -23,7 +31,10 @@ class ProjectController extends Controller
 
     public function store(StoreProjectRequest $request)
     {
-        $project = Project::create($request->validated());
+        $project = Project::create([
+            ...$request->validated(),
+            'user_id' => $request->user()->id,
+        ]);
 
         return redirect()
             ->route('projects.show', $project)
@@ -32,7 +43,10 @@ class ProjectController extends Controller
 
     public function show(Request $request, Project $project)
     {
-        $project->load(['issues' => fn ($query) => $query->with(['project', 'tags'])->latest()]);
+        $project->load([
+            'owner',
+            'issues' => fn ($query) => $query->with(['project', 'tags', 'users'])->latest(),
+        ]);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -43,6 +57,7 @@ class ProjectController extends Controller
                 'boardUrl' => route('issues.index', ['project' => $project->id]),
                 'editUrl' => route('projects.edit', $project),
                 'deleteUrl' => route('projects.destroy', $project),
+                'canManage' => $request->user()->can('update', $project),
             ]);
         }
 

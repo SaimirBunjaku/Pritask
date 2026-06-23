@@ -17,16 +17,19 @@
             </div>
             <div class="card-actions" id="project-show-actions">
                 <a href="{{ route('issues.index') }}?project={{ $project->id }}" class="btn btn-secondary" data-project-board-link>View on board</a>
-                <a href="{{ route('projects.edit', $project) }}" class="btn btn-secondary" data-project-edit-link>Edit</a>
-                <form action="{{ route('projects.destroy', $project) }}" method="POST"
-                      data-confirm-delete
-                      data-confirm-title="Delete project?"
-                      data-confirm-message="This will permanently delete the project and all of its issues."
-                      data-project-delete-form>
-                    @csrf
-                    @method('DELETE')
-                    <button type="submit" class="btn btn-danger">Delete</button>
-                </form>
+                @can('update', $project)
+                    <a href="{{ route('projects.edit', $project) }}" class="btn btn-secondary" data-project-edit-link data-project-manage>Edit</a>
+                    <form action="{{ route('projects.destroy', $project) }}" method="POST"
+                          data-confirm-delete
+                          data-confirm-title="Delete project?"
+                          data-confirm-message="This will permanently delete the project and all of its issues."
+                          data-project-delete-form
+                          data-project-manage>
+                        @csrf
+                        @method('DELETE')
+                        <button type="submit" class="btn btn-danger">Delete</button>
+                    </form>
+                @endcan
             </div>
         </div>
 

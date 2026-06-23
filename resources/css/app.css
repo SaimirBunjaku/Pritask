@@ -1,15 +1,5 @@
-@import 'tailwindcss';
-
-@source '../../vendor/laravel/framework/src/Illuminate/Pagination/resources/views/*.blade.php';
-@source '../../storage/framework/views/*.php';
-@source '../**/*.blade.php';
-@source '../**/*.js';
-
-@theme {
-    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
-}
-
 :root {
+    --font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
     --color-bg: #f5f5f7;
     --color-surface: #ffffff;
     --color-text: #1d1d1f;
@@ -111,6 +101,7 @@ h2 {
 .navbar-links {
     display: flex;
     gap: 20px;
+    flex: 1;
 }
 
 .navbar-links a {
@@ -140,6 +131,184 @@ h2 {
     height: 2px;
     background: var(--color-accent);
     border-radius: 1px;
+}
+
+.navbar-user {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-left: auto;
+}
+
+.navbar-user-name {
+    font-size: 14px;
+    color: var(--color-text-muted);
+}
+
+.navbar-user form {
+    margin: 0;
+}
+
+.navbar-notifications-wrap {
+    position: relative;
+}
+
+.navbar-notifications-btn {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    padding: 0;
+    border: none;
+    border-radius: 50%;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition: background 0.2s ease, color 0.2s ease;
+}
+
+.navbar-notifications-btn:hover,
+.navbar-notifications-btn[aria-expanded="true"] {
+    background: rgba(0, 0, 0, 0.05);
+    color: var(--color-text);
+}
+
+.navbar-notifications-icon {
+    display: block;
+}
+
+.navbar-notifications-badge {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    min-width: 16px;
+    height: 16px;
+    padding: 0 4px;
+    border-radius: 999px;
+    background: var(--color-danger);
+    color: #fff;
+    font-size: 10px;
+    font-weight: 600;
+    line-height: 16px;
+    text-align: center;
+}
+
+.navbar-notifications-badge[hidden] {
+    display: none !important;
+}
+
+.navbar-notifications-panel {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(360px, calc(100vw - 48px));
+    max-height: 420px;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.12);
+    z-index: 50;
+}
+
+.navbar-notifications-panel[hidden] {
+    display: none !important;
+}
+
+.navbar-notifications-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--color-border);
+}
+
+.navbar-notifications-title {
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.navbar-notifications-mark-all {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-accent);
+    cursor: pointer;
+}
+
+.navbar-notifications-mark-all:hover {
+    text-decoration: underline;
+}
+
+.navbar-notifications-mark-all[hidden] {
+    display: none !important;
+}
+
+.navbar-notifications-list {
+    overflow-y: auto;
+    max-height: 340px;
+}
+
+.navbar-notifications-list[hidden] {
+    display: none !important;
+}
+
+.navbar-notification-item {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 4px;
+    width: 100%;
+    padding: 12px 16px;
+    border: none;
+    border-bottom: 1px solid var(--color-border);
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    transition: background 0.15s ease;
+}
+
+.navbar-notification-item:last-child {
+    border-bottom: none;
+}
+
+.navbar-notification-item:hover {
+    background: rgba(0, 0, 0, 0.03);
+}
+
+.navbar-notification-item.is-unread {
+    background: rgba(0, 122, 255, 0.06);
+}
+
+.navbar-notification-message {
+    font-size: 13px;
+    line-height: 1.45;
+    color: var(--color-text);
+}
+
+.navbar-notification-time {
+    font-size: 12px;
+    color: var(--color-text-muted);
+}
+
+.navbar-notifications-empty,
+.navbar-notifications-loading {
+    margin: 0;
+    padding: 24px 16px;
+    font-size: 13px;
+    text-align: center;
+}
+
+.navbar-notifications-empty[hidden],
+.navbar-notifications-loading[hidden] {
+    display: none !important;
 }
 
 .container {
@@ -516,6 +685,11 @@ textarea.form-control {
     margin-bottom: 24px;
 }
 
+.issue-comment-as {
+    margin: 0 0 12px;
+    font-size: 13px;
+}
+
 .issue-comment-form .form-group {
     width: 100%;
     margin-bottom: 16px;
@@ -554,10 +728,65 @@ textarea.form-control {
 
 .issue-comment-header {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     justify-content: space-between;
     gap: 12px;
     margin-bottom: 6px;
+}
+
+.issue-comment-meta {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 8px;
+    min-width: 0;
+}
+
+.issue-comment-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-shrink: 0;
+}
+
+.issue-comment-action {
+    border: none;
+    background: none;
+    padding: 0;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--color-accent);
+    cursor: pointer;
+}
+
+.issue-comment-action:hover {
+    text-decoration: underline;
+}
+
+.issue-comment-action-danger {
+    color: var(--color-danger);
+}
+
+.issue-comment-edit-form {
+    margin-top: 4px;
+}
+
+.issue-comment-edit-form .issue-comment-textarea {
+    min-height: 80px;
+    margin-bottom: 8px;
+}
+
+.issue-comment-edit-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.issue-comment-edit-form[hidden] {
+    display: none !important;
+}
+
+.issue-comment-view[hidden] {
+    display: none !important;
 }
 
 .issue-comment-author {
@@ -589,6 +818,10 @@ textarea.form-control {
 .issue-comments-load-more {
     width: 100%;
     margin-top: 8px;
+}
+
+.issue-comments-load-more[hidden] {
+    display: none !important;
 }
 
 .custom-select {
@@ -736,6 +969,11 @@ textarea.form-control {
     border-radius: 12px;
     background: var(--color-surface);
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
+}
+
+.custom-select-menu[hidden],
+.tag-picker-menu[hidden] {
+    display: none !important;
 }
 
 .custom-select-option {
@@ -1202,6 +1440,10 @@ body.confirm-open {
     overflow: hidden;
 }
 
+body.issue-modal-open {
+    overflow: hidden;
+}
+
 .modal-backdrop.is-open {
     opacity: 1;
     visibility: visible;
@@ -1367,4 +1609,139 @@ form[data-issue-form] .modal-actions-sticky {
     100% {
         background-position: -200% 0;
     }
+}
+
+.board-search-input {
+    min-width: 180px;
+    max-width: 240px;
+}
+
+.issue-members-section {
+    margin-bottom: 20px;
+}
+
+.issue-members-label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.issue-members-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.member-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px 4px 4px;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.05);
+    font-size: 13px;
+}
+
+.member-pill-removable {
+    padding-right: 4px;
+}
+
+.member-avatar {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--color-accent);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.member-avatar-sm {
+    width: 18px;
+    height: 18px;
+    font-size: 10px;
+}
+
+.member-pill-remove {
+    border: 0;
+    background: transparent;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-size: 16px;
+    line-height: 1;
+    padding: 0 4px;
+}
+
+.member-pill-remove:hover {
+    color: var(--color-danger);
+}
+
+.issue-members-hint,
+.issue-members-empty {
+    font-size: 13px;
+}
+
+.auth-container {
+    max-width: 440px;
+    margin: 0 auto;
+    padding-top: 48px;
+}
+
+.auth-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 24px;
+    color: var(--color-text);
+    font-weight: 600;
+    font-size: 17px;
+}
+
+.auth-brand:hover {
+    color: var(--color-text);
+}
+
+.auth-card {
+    padding: 28px;
+}
+
+.auth-title {
+    margin: 0 0 20px;
+    font-size: 24px;
+}
+
+.auth-demo {
+    margin-top: 16px;
+    font-size: 13px;
+}
+
+.auth-demo p {
+    margin: 0 0 8px;
+}
+
+.auth-demo-list {
+    margin: 0;
+    padding-left: 18px;
+}
+
+.auth-demo-list li {
+    margin-bottom: 4px;
+}
+
+.auth-demo code {
+    font-size: 12px;
+}
+
+.checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 14px;
+    color: var(--color-text-muted);
 }

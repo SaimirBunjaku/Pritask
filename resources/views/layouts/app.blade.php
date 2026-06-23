@@ -4,6 +4,9 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
+    @auth
+        <meta name="current-user-name" content="{{ auth()->user()->name }}">
+    @endauth
     <title>@yield('title', 'Pritask')</title>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>

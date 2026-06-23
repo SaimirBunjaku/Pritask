@@ -10,6 +10,12 @@
     <div class="page-header">
         <h1>Issues</h1>
         <div class="board-toolbar" id="board-toolbar">
+            <input type="search"
+                   id="filter-search"
+                   class="form-control form-control-sm board-search-input"
+                   placeholder="Search issues…"
+                   value="{{ $filters['search'] ?? '' }}"
+                   autocomplete="off">
             <select id="filter-project" class="form-control form-control-sm select-enhanced" data-board-filter>
                 <option value="">All projects</option>
                 @foreach ($projects as $project)
@@ -39,7 +45,8 @@
     </div>
 
     <div class="board-viewport"
-         data-all-tags='@json($tags->map(fn ($tag) => ["id" => $tag->id, "name" => $tag->name, "color" => $tag->color ?? "#8e8e93"]))'>
+         data-all-tags='@json($tags->map(fn ($tag) => ["id" => $tag->id, "name" => $tag->name, "color" => $tag->color ?? "#8e8e93"]))'
+         data-all-users='@json($users->map(fn ($user) => ["id" => $user->id, "name" => $user->name]))'>
         @include('issues.partials.board', ['issues' => $issues])
     </div>
 @endsection

@@ -16,6 +16,10 @@ export function initProjectShow() {
         root.querySelector('[data-project-board-link]')?.setAttribute('href', data.boardUrl);
         root.querySelector('[data-project-edit-link]')?.setAttribute('href', data.editUrl);
         root.querySelector('[data-project-delete-form]')?.setAttribute('action', data.deleteUrl);
+
+        root.querySelectorAll('[data-project-manage]').forEach((el) => {
+            el.hidden = !data.canManage;
+        });
     }
 
     function syncSelectValue(url) {

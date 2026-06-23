@@ -10,7 +10,7 @@ class StoreIssueRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return true;
+        return $this->user()?->can('create', Issue::class) ?? false;
     }
 
     public function rules(): array
