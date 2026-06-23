@@ -11,19 +11,13 @@ export function initIssuesBoard() {
 
     const modalBody = document.getElementById('issue-modal-body');
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
-    const board = document.getElementById('board');
+    const boardViewport = document.querySelector('.board-viewport');
+    const getBoard = () => document.getElementById('board');
     const projectFilter = document.getElementById('filter-project');
+    const statusFilter = document.getElementById('filter-status');
     const priorityFilter = document.getElementById('filter-priority');
     const tagFilter = document.getElementById('filter-tag');
     let blockIssueClick = false;
-
-    const urlProjectFilter = new URLSearchParams(window.location.search).get('project') || '';
-    const storedProjectFilter = sessionStorage.getItem('boardProjectFilter') || '';
-    const initialProjectFilter = urlProjectFilter || storedProjectFilter;
-
-    if (projectFilter && initialProjectFilter) {
-        projectFilter.value = initialProjectFilter;
-    }
 
     function request(url, options = {}) {
         return fetch(url, {
@@ -38,6 +32,29 @@ export function initIssuesBoard() {
 
     const issueCache = new Map();
     const issueInflight = new Map();
+    let modalRevision = 0;
+
+    function bumpModalRevision() {
+        modalRevision += 1;
+        modalBody.dataset.modalRevision = String(modalRevision);
+
+        return modalRevision;
+    }
+
+    function applyLoadedIssueHtml(url, html, revisionAtLoad) {
+        if (modalBody.dataset.issueUrl !== url) {
+            return;
+        }
+
+        if (Number(modalBody.dataset.modalRevision) !== revisionAtLoad) {
+            return;
+        }
+
+        modalBody.innerHTML = html;
+        initCustomSelects(modalBody);
+        initIssueComments(modalBody);
+        issueCache.set(url, html);
+    }
 
     function escapeHtml(value) {
         return String(value)
@@ -60,23 +77,143 @@ export function initIssuesBoard() {
         }
     }
 
-    function syncBoardProjectFilter(projectId) {
-        sessionStorage.setItem('boardProjectFilter', projectId || '');
+    function getActiveBoardFilters() {
+        return {
+            project: projectFilter?.value || '',
+            status: statusFilter?.value || '',
+            priority: priorityFilter?.value || '',
+            tag: tagFilter?.value || '',
+        };
+    }
 
-        if (!projectFilter) {
-            applyFilters();
-            return;
+    function cardMatchesFilters(card, filters = getActiveBoardFilters()) {
+        if (filters.project && card.dataset.projectId !== String(filters.project)) {
+            return false;
         }
 
-        if (projectFilter.value !== projectId) {
-            projectFilter.value = projectId;
-            const wrapper = projectFilter.closest('.custom-select');
+        if (filters.status && card.dataset.status !== filters.status) {
+            return false;
+        }
+
+        if (filters.priority && card.dataset.priority !== filters.priority) {
+            return false;
+        }
+
+        if (filters.tag && !card.dataset.tags.split(',').filter(Boolean).includes(String(filters.tag))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    let filterInflight = null;
+    let filterRequestId = 0;
+
+    function buildFilterUrl() {
+        const params = new URLSearchParams();
+        const filters = getActiveBoardFilters();
+
+        if (filters.project) {
+            params.set('project', filters.project);
+        }
+
+        if (filters.status) {
+            params.set('status', filters.status);
+        }
+
+        if (filters.priority) {
+            params.set('priority', filters.priority);
+        }
+
+        if (filters.tag) {
+            params.set('tag', filters.tag);
+        }
+
+        const query = params.toString();
+
+        return query ? `${window.location.pathname}?${query}` : window.location.pathname;
+    }
+
+    function syncFiltersFromUrl() {
+        const params = new URLSearchParams(window.location.search);
+        const map = {
+            project: projectFilter,
+            status: statusFilter,
+            priority: priorityFilter,
+            tag: tagFilter,
+        };
+
+        Object.entries(map).forEach(([key, select]) => {
+            if (!select) {
+                return;
+            }
+
+            const value = params.get(key) || '';
+            if (select.value === value) {
+                return;
+            }
+
+            select.value = value;
+            const wrapper = select.closest('.custom-select');
             if (wrapper) {
                 syncCustomSelect(wrapper);
             }
+        });
+    }
+
+    async function applyBoardFilters({ pushState = true } = {}) {
+        if (!getBoard()) {
+            return;
         }
 
-        applyFilters();
+        const url = buildFilterUrl();
+        const current = `${window.location.pathname}${window.location.search}`;
+
+        if (current === url && pushState) {
+            return;
+        }
+
+        if (filterInflight) {
+            filterInflight.abort();
+        }
+
+        const controller = new AbortController();
+        filterInflight = controller;
+        const requestId = ++filterRequestId;
+
+        boardViewport?.classList.add('is-filtering');
+
+        try {
+            const response = await fetch(url, {
+                signal: controller.signal,
+                headers: {
+                    Accept: 'application/json',
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'X-CSRF-TOKEN': csrfToken,
+                },
+            });
+
+            if (!response.ok || requestId !== filterRequestId) {
+                return;
+            }
+
+            const data = await response.json();
+            replaceBoardHtml(data.boardHtml);
+            issueCache.clear();
+
+            if (pushState && current !== url) {
+                history.pushState({ boardFilters: true }, '', url);
+            }
+        } catch (error) {
+            if (error.name !== 'AbortError') {
+                throw error;
+            }
+        } finally {
+            boardViewport?.classList.remove('is-filtering');
+            if (filterInflight === controller) {
+                filterInflight = null;
+            }
+        }
     }
 
     function getAllTags() {
@@ -336,17 +473,36 @@ export function initIssuesBoard() {
             tagsSection.outerHTML = data.issueTags;
         }
 
-        if (board && data.card) {
+        if (getBoard() && data.card) {
             const existing = document.querySelector(`.issue-card[data-id="${data.modalData.id}"]`);
             if (existing) {
                 const template = document.createElement('template');
                 template.innerHTML = data.card.trim();
-                existing.replaceWith(template.content.firstElementChild);
-                applyFilters();
+                const newCard = template.content.firstElementChild;
+
+                if (cardMatchesFilters(newCard)) {
+                    existing.replaceWith(newCard);
+                } else {
+                    existing.remove();
+                }
+
+                updateColumnCounts();
             }
         }
 
-        invalidateIssueCache(data.modalData.id);
+        const card = document.querySelector(`.issue-card[data-id="${data.modalData.id}"]`);
+        if (card) {
+            card.setAttribute('data-issue', JSON.stringify(data.modalData));
+        }
+
+        const url = modalBody.dataset.issueUrl;
+        if (url) {
+            issueCache.set(url, modalBody.innerHTML);
+        } else {
+            invalidateIssueCache(data.modalData.id);
+        }
+
+        bumpModalRevision();
     }
 
     function loadIssueHtml(url) {
@@ -385,6 +541,7 @@ export function initIssuesBoard() {
     function showModalContent(html, url = '') {
         modalBody.innerHTML = html;
         modalBody.dataset.issueUrl = url;
+        bumpModalRevision();
         modalBackdrop.classList.add('is-open');
         initCustomSelects(modalBody);
         initIssueComments(modalBody);
@@ -481,6 +638,12 @@ export function initIssuesBoard() {
             list.insertAdjacentHTML('afterbegin', data.comment);
             form.reset();
             section.querySelector('[data-comments-empty]').hidden = true;
+
+            const url = modalBody.dataset.issueUrl;
+            if (url) {
+                issueCache.set(url, modalBody.innerHTML);
+            }
+            bumpModalRevision();
         } finally {
             submitBtn.disabled = false;
         }
@@ -502,16 +665,10 @@ export function initIssuesBoard() {
 
         if (issueData) {
             showModalContent(renderIssueDetails(issueData), url);
-            if (issueData.projectId && board) {
-                syncBoardProjectFilter(String(issueData.projectId));
-            }
+            const loadRevision = Number(modalBody.dataset.modalRevision);
             loadIssueHtml(url)
                 .then((html) => {
-                    if (modalBody.dataset.issueUrl === url) {
-                        modalBody.innerHTML = html;
-                        initCustomSelects(modalBody);
-                        initIssueComments(modalBody);
-                    }
+                    applyLoadedIssueHtml(url, html, loadRevision);
                 })
                 .catch(() => {});
             return;
@@ -523,13 +680,10 @@ export function initIssuesBoard() {
         }
 
         showModalContent(renderModalSkeleton(), url);
+        const loadRevision = Number(modalBody.dataset.modalRevision);
         loadIssueHtml(url)
             .then((html) => {
-                if (modalBody.dataset.issueUrl === url) {
-                    modalBody.innerHTML = html;
-                    initCustomSelects(modalBody);
-                    initIssueComments(modalBody);
-                }
+                applyLoadedIssueHtml(url, html, loadRevision);
             })
             .catch(() => {
                 if (modalBody.dataset.issueUrl === url) {
@@ -549,21 +703,8 @@ export function initIssuesBoard() {
 
     function updateColumnCounts() {
         document.querySelectorAll('.board-column').forEach((column) => {
-            const count = column.querySelectorAll('.issue-card').length;
+            const count = column.querySelectorAll('.issue-card:not(.is-hidden)').length;
             column.querySelector('.board-column-count').textContent = count;
-        });
-    }
-
-    function applyFilters() {
-        const project = projectFilter?.value || sessionStorage.getItem('boardProjectFilter') || '';
-        const priority = priorityFilter?.value || '';
-        const tag = tagFilter?.value || '';
-
-        document.querySelectorAll('.issue-card').forEach((card) => {
-            const matchesProject = !project || card.dataset.projectId === project;
-            const matchesPriority = !priority || card.dataset.priority === priority;
-            const matchesTag = !tag || card.dataset.tags.split(',').filter(Boolean).includes(tag);
-            card.classList.toggle('is-hidden', !(matchesProject && matchesPriority && matchesTag));
         });
     }
 
@@ -576,14 +717,23 @@ export function initIssuesBoard() {
 
         invalidateIssueCache(newCard.dataset.id);
 
+        if (!cardMatchesFilters(newCard)) {
+            updateColumnCounts();
+            return;
+        }
+
         const columnBody = document.querySelector(`.board-column-body[data-status="${newCard.dataset.status}"]`);
+        if (!columnBody) {
+            return;
+        }
+
         const firstCard = columnBody.querySelector('.issue-card');
         if (firstCard) {
             columnBody.insertBefore(newCard, firstCard);
         } else {
             columnBody.querySelector('.board-column-header')?.after(newCard) ?? columnBody.append(newCard);
         }
-        applyFilters();
+
         updateColumnCounts();
     }
 
@@ -652,14 +802,44 @@ export function initIssuesBoard() {
         openIssue('/issues/create');
     });
 
-    projectFilter?.addEventListener('change', (event) => {
-        syncBoardProjectFilter(event.target.value);
+    document.querySelectorAll('[data-board-filter]').forEach((select) => {
+        select.addEventListener('change', () => {
+            applyBoardFilters({ pushState: true });
+        });
     });
 
-    priorityFilter?.addEventListener('change', applyFilters);
-    tagFilter?.addEventListener('change', applyFilters);
+    if (getBoard()) {
+        window.addEventListener('popstate', () => {
+            syncFiltersFromUrl();
+            applyBoardFilters({ pushState: false });
+        });
+    }
 
     document.addEventListener('click', async (event) => {
+        if (event.target.closest('[data-action="detach-tag"]')) {
+            event.preventDefault();
+            event.stopPropagation();
+            const button = event.target.closest('[data-action="detach-tag"]');
+            const section = button.closest('.issue-tags-section');
+            if (!section || !modalBackdrop.classList.contains('is-open')) {
+                return;
+            }
+
+            const errorEl = section.querySelector('[data-error-for="tag"]');
+            if (errorEl) {
+                errorEl.textContent = '';
+            }
+
+            const response = await request(button.dataset.url, { method: 'DELETE' });
+
+            if (response.ok) {
+                syncTagResponse(await response.json());
+            } else if (errorEl) {
+                errorEl.textContent = 'Could not remove tag.';
+            }
+            return;
+        }
+
         const quickBtn = event.target.closest('[data-action="quick-status"]');
         if (quickBtn) {
             event.preventDefault();
@@ -684,14 +864,13 @@ export function initIssuesBoard() {
                 if (row && data.projectRow) {
                     row.outerHTML = data.projectRow;
                 }
-                if (board && data.card) {
+                if (getBoard() && data.card) {
                     upsertCard(data.card);
                 }
                 invalidateIssueCache(issueId);
             }
 
             quickBtn.disabled = false;
-            return;
         }
     });
 
@@ -762,26 +941,6 @@ export function initIssuesBoard() {
             openIssue(event.target.dataset.url);
         }
 
-        if (event.target.closest('[data-action="detach-tag"]')) {
-            const button = event.target.closest('[data-action="detach-tag"]');
-            const section = button.closest('.issue-tags-section');
-            const errorEl = section?.querySelector('[data-error-for="tag"]');
-            if (errorEl) {
-                errorEl.textContent = '';
-            }
-
-            const response = await request(button.dataset.url, { method: 'DELETE' });
-
-            if (response.ok) {
-                syncTagResponse(await response.json());
-                return;
-            }
-
-            if (errorEl) {
-                errorEl.textContent = 'Could not remove tag.';
-            }
-        }
-
         if (event.target.matches('[data-action="delete-issue"]')) {
             const button = event.target;
             const confirmed = await confirmAction({
@@ -798,7 +957,7 @@ export function initIssuesBoard() {
 
             if (response.ok) {
                 invalidateIssueCache(button.dataset.id);
-                if (board) {
+                if (getBoard()) {
                     document.querySelector(`.issue-card[data-id="${button.dataset.id}"]`)?.remove();
                     updateColumnCounts();
                     closeModal();
@@ -840,7 +999,7 @@ export function initIssuesBoard() {
             return;
         }
 
-        if (board) {
+        if (getBoard()) {
             const html = await response.text();
             upsertCard(html);
             closeModal();
@@ -849,16 +1008,109 @@ export function initIssuesBoard() {
         }
     });
 
-    if (board) {
-        applyFilters();
-    }
-
-    if (!board) {
+    if (!getBoard()) {
         return;
     }
 
-    const boardViewport = board.closest('.board-viewport');
-    const scrollContainer = boardViewport ?? board;
+    const scrollContainer = boardViewport ?? getBoard();
+    const sortableInstances = [];
+
+    function replaceBoardHtml(html) {
+        const currentBoard = getBoard();
+        if (!currentBoard) {
+            return;
+        }
+
+        const template = document.createElement('template');
+        template.innerHTML = html.trim();
+        const newBoard = template.content.firstElementChild;
+        currentBoard.replaceWith(newBoard);
+        initBoardSortable();
+    }
+
+    function destroyBoardSortable() {
+        sortableInstances.forEach((instance) => {
+            instance.destroy();
+        });
+        sortableInstances.length = 0;
+    }
+
+    function initBoardSortable() {
+        destroyBoardSortable();
+
+        getBoard()?.querySelectorAll('.board-column-body').forEach((columnBody) => {
+            // eslint-disable-next-line no-undef
+            sortableInstances.push(Sortable.create(columnBody, {
+                group: 'board',
+                draggable: '.issue-card',
+                animation: 150,
+                ghostClass: 'sortable-ghost',
+                dragClass: 'sortable-drag',
+                chosenClass: 'sortable-chosen',
+                delay: 0,
+                delayOnTouchOnly: true,
+                emptyInsertThreshold: 24,
+                scroll: scrollContainer,
+                forceAutoScrollFallback: true,
+                bubbleScroll: true,
+                scrollSensitivity: 60,
+                scrollSpeed: 5,
+                onStart(event) {
+                    getBoard()?.classList.add('is-dragging');
+                    pointerX = event.originalEvent?.clientX ?? 0;
+                    pointerY = event.originalEvent?.clientY ?? 0;
+                    document.addEventListener('mousemove', trackPointer);
+                    document.addEventListener('touchmove', trackPointer, { passive: true });
+                    document.addEventListener('dragover', trackPointer);
+                    startBoardAutoScroll();
+                },
+                onMove(event) {
+                    pointerX = event.originalEvent?.clientX ?? pointerX;
+                    pointerY = event.originalEvent?.clientY ?? pointerY;
+                },
+                onEnd(event) {
+                    getBoard()?.classList.remove('is-dragging');
+                    document.removeEventListener('mousemove', trackPointer);
+                    document.removeEventListener('touchmove', trackPointer);
+                    document.removeEventListener('dragover', trackPointer);
+                    stopBoardAutoScroll();
+
+                    const moved = event.from !== event.to || event.oldIndex !== event.newIndex;
+                    if (moved) {
+                        blockIssueClick = true;
+                        window.setTimeout(() => {
+                            blockIssueClick = false;
+                        }, 0);
+                    }
+
+                    const card = event.item;
+                    const newStatus = event.to.dataset.status;
+
+                    if (event.from === event.to && event.oldIndex === event.newIndex) {
+                        return;
+                    }
+
+                    card.dataset.status = newStatus;
+                    updateColumnCounts();
+
+                    if (!cardMatchesFilters(card)) {
+                        card.remove();
+                        updateColumnCounts();
+                    }
+
+                    request(`/issues/${card.dataset.id}/status`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: newStatus }),
+                    }).then((response) => {
+                        if (!response.ok) {
+                            window.alert('Could not update status, please try again.');
+                        }
+                    });
+                },
+            }));
+        });
+    }
 
     const scrollEdge = 72;
     const maxScrollSpeed = 5;
@@ -927,71 +1179,5 @@ export function initIssuesBoard() {
         }
     }
 
-    document.querySelectorAll('.board-column-body').forEach((columnBody) => {
-        // eslint-disable-next-line no-undef
-        Sortable.create(columnBody, {
-            group: 'board',
-            draggable: '.issue-card',
-            animation: 150,
-            ghostClass: 'sortable-ghost',
-            dragClass: 'sortable-drag',
-            chosenClass: 'sortable-chosen',
-            delay: 0,
-            delayOnTouchOnly: true,
-            emptyInsertThreshold: 24,
-            scroll: scrollContainer,
-            forceAutoScrollFallback: true,
-            bubbleScroll: true,
-            scrollSensitivity: 60,
-            scrollSpeed: 5,
-            onStart(event) {
-                board.classList.add('is-dragging');
-                pointerX = event.originalEvent?.clientX ?? 0;
-                pointerY = event.originalEvent?.clientY ?? 0;
-                document.addEventListener('mousemove', trackPointer);
-                document.addEventListener('touchmove', trackPointer, { passive: true });
-                document.addEventListener('dragover', trackPointer);
-                startBoardAutoScroll();
-            },
-            onMove(event) {
-                pointerX = event.originalEvent?.clientX ?? pointerX;
-                pointerY = event.originalEvent?.clientY ?? pointerY;
-            },
-            onEnd(event) {
-                board.classList.remove('is-dragging');
-                document.removeEventListener('mousemove', trackPointer);
-                document.removeEventListener('touchmove', trackPointer);
-                document.removeEventListener('dragover', trackPointer);
-                stopBoardAutoScroll();
-
-                const moved = event.from !== event.to || event.oldIndex !== event.newIndex;
-                if (moved) {
-                    blockIssueClick = true;
-                    window.setTimeout(() => {
-                        blockIssueClick = false;
-                    }, 0);
-                }
-
-                const card = event.item;
-                const newStatus = event.to.dataset.status;
-
-                if (event.from === event.to && event.oldIndex === event.newIndex) {
-                    return;
-                }
-
-                card.dataset.status = newStatus;
-                updateColumnCounts();
-
-                request(`/issues/${card.dataset.id}/status`, {
-                    method: 'PATCH',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ status: newStatus }),
-                }).then((response) => {
-                    if (!response.ok) {
-                        window.alert('Could not update status, please try again.');
-                    }
-                });
-            },
-        });
-    });
+    initBoardSortable();
 }

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\IndexIssueRequest;
 use App\Http\Requests\StoreIssueRequest;
 use App\Http\Requests\UpdateIssueRequest;
 use App\Models\Issue;
@@ -12,13 +13,33 @@ use Illuminate\Validation\Rule;
 
 class IssueController extends Controller
 {
-    public function index()
+    public function index(IndexIssueRequest $request)
     {
-        $issues = Issue::with(['project', 'tags'])->latest()->get();
+        $filters = $request->validated();
+
+        $issues = Issue::query()
+            ->with(['project', 'tags'])
+            ->when($filters['project'] ?? null, fn ($query, $projectId) => $query->where('project_id', $projectId))
+            ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
+            ->when($filters['priority'] ?? null, fn ($query, $priority) => $query->where('priority', $priority))
+            ->when($filters['tag'] ?? null, fn ($query, $tagId) => $query->whereHas(
+                'tags',
+                fn ($tagQuery) => $tagQuery->where('tags.id', $tagId)
+            ))
+            ->latest()
+            ->get();
+
         $tags = Tag::orderBy('name')->get();
         $projects = Project::orderBy('name')->get();
 
-        return view('issues.index', compact('issues', 'tags', 'projects'));
+        if ($request->wantsJson()) {
+            return response()->json([
+                'boardHtml' => view('issues.partials.board', compact('issues'))->render(),
+                'filters' => $filters,
+            ]);
+        }
+
+        return view('issues.index', compact('issues', 'tags', 'projects', 'filters'));
     }
 
     public function create()
