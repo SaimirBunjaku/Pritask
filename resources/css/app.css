@@ -315,6 +315,7 @@ h2 {
 
 .btn-primary:hover {
     background: var(--color-accent-hover);
+    color: #fff;
 }
 
 .btn-secondary {

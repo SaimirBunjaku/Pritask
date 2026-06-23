@@ -13,17 +13,10 @@ export function initIssuesBoard() {
     const csrfToken = document.querySelector('meta[name="csrf-token"]').content;
     const board = document.getElementById('board');
     const projectFilter = document.getElementById('filter-project');
+    const statusFilter = document.getElementById('filter-status');
     const priorityFilter = document.getElementById('filter-priority');
     const tagFilter = document.getElementById('filter-tag');
     let blockIssueClick = false;
-
-    const urlProjectFilter = new URLSearchParams(window.location.search).get('project') || '';
-    const storedProjectFilter = sessionStorage.getItem('boardProjectFilter') || '';
-    const initialProjectFilter = urlProjectFilter || storedProjectFilter;
-
-    if (projectFilter && initialProjectFilter) {
-        projectFilter.value = initialProjectFilter;
-    }
 
     function request(url, options = {}) {
         return fetch(url, {
@@ -38,6 +31,7 @@ export function initIssuesBoard() {
 
     const issueCache = new Map();
     const issueInflight = new Map();
+    let modalRevision = 0;
 
     function escapeHtml(value) {
         return String(value)
@@ -61,10 +55,7 @@ export function initIssuesBoard() {
     }
 
     function syncBoardProjectFilter(projectId) {
-        sessionStorage.setItem('boardProjectFilter', projectId || '');
-
         if (!projectFilter) {
-            applyFilters();
             return;
         }
 
@@ -346,7 +337,19 @@ export function initIssuesBoard() {
             }
         }
 
-        invalidateIssueCache(data.modalData.id);
+        const card = document.querySelector(`.issue-card[data-id="${data.modalData.id}"]`);
+        if (card) {
+            card.setAttribute('data-issue', JSON.stringify(data.modalData));
+        }
+
+        const url = modalBody.dataset.issueUrl;
+        if (url) {
+            issueCache.set(url, modalBody.innerHTML);
+        } else {
+            invalidateIssueCache(data.modalData.id);
+        }
+
+        bumpModalRevision();
     }
 
     function loadIssueHtml(url) {
@@ -374,6 +377,28 @@ export function initIssuesBoard() {
         return pending;
     }
 
+    function bumpModalRevision() {
+        modalRevision += 1;
+        modalBody.dataset.modalRevision = String(modalRevision);
+
+        return modalRevision;
+    }
+
+    function applyLoadedIssueHtml(url, html, revisionAtLoad) {
+        if (modalBody.dataset.issueUrl !== url) {
+            return;
+        }
+
+        if (Number(modalBody.dataset.modalRevision) !== revisionAtLoad) {
+            return;
+        }
+
+        modalBody.innerHTML = html;
+        initCustomSelects(modalBody);
+        initIssueComments(modalBody);
+        issueCache.set(url, html);
+    }
+
     function invalidateIssueCache(issueId) {
         for (const url of issueCache.keys()) {
             if (url.includes(`/issues/${issueId}`)) {
@@ -385,6 +410,7 @@ export function initIssuesBoard() {
     function showModalContent(html, url = '') {
         modalBody.innerHTML = html;
         modalBody.dataset.issueUrl = url;
+        bumpModalRevision();
         modalBackdrop.classList.add('is-open');
         initCustomSelects(modalBody);
         initIssueComments(modalBody);
@@ -481,6 +507,12 @@ export function initIssuesBoard() {
             list.insertAdjacentHTML('afterbegin', data.comment);
             form.reset();
             section.querySelector('[data-comments-empty]').hidden = true;
+
+            const url = modalBody.dataset.issueUrl;
+            if (url) {
+                issueCache.set(url, modalBody.innerHTML);
+            }
+            bumpModalRevision();
         } finally {
             submitBtn.disabled = false;
         }
@@ -505,13 +537,10 @@ export function initIssuesBoard() {
             if (issueData.projectId && board) {
                 syncBoardProjectFilter(String(issueData.projectId));
             }
+            const loadRevision = Number(modalBody.dataset.modalRevision);
             loadIssueHtml(url)
                 .then((html) => {
-                    if (modalBody.dataset.issueUrl === url) {
-                        modalBody.innerHTML = html;
-                        initCustomSelects(modalBody);
-                        initIssueComments(modalBody);
-                    }
+                    applyLoadedIssueHtml(url, html, loadRevision);
                 })
                 .catch(() => {});
             return;
@@ -523,13 +552,10 @@ export function initIssuesBoard() {
         }
 
         showModalContent(renderModalSkeleton(), url);
+        const loadRevision = Number(modalBody.dataset.modalRevision);
         loadIssueHtml(url)
             .then((html) => {
-                if (modalBody.dataset.issueUrl === url) {
-                    modalBody.innerHTML = html;
-                    initCustomSelects(modalBody);
-                    initIssueComments(modalBody);
-                }
+                applyLoadedIssueHtml(url, html, loadRevision);
             })
             .catch(() => {
                 if (modalBody.dataset.issueUrl === url) {
@@ -549,22 +575,79 @@ export function initIssuesBoard() {
 
     function updateColumnCounts() {
         document.querySelectorAll('.board-column').forEach((column) => {
-            const count = column.querySelectorAll('.issue-card').length;
+            const count = column.querySelectorAll('.issue-card:not(.is-hidden)').length;
             column.querySelector('.board-column-count').textContent = count;
         });
     }
 
+    function getActiveBoardFilters() {
+        return {
+            project: projectFilter?.value || '',
+            status: statusFilter?.value || '',
+            priority: priorityFilter?.value || '',
+            tag: tagFilter?.value || '',
+        };
+    }
+
+    function cardMatchesFilters(card, filters = getActiveBoardFilters()) {
+        if (filters.project && card.dataset.projectId !== String(filters.project)) {
+            return false;
+        }
+
+        if (filters.status && card.dataset.status !== filters.status) {
+            return false;
+        }
+
+        if (filters.priority && card.dataset.priority !== filters.priority) {
+            return false;
+        }
+
+        if (filters.tag && !card.dataset.tags.split(',').filter(Boolean).includes(String(filters.tag))) {
+            return false;
+        }
+
+        return true;
+    }
+
+    function navigateWithBoardFilters() {
+        const params = new URLSearchParams();
+        const filters = getActiveBoardFilters();
+
+        if (filters.project) {
+            params.set('project', filters.project);
+        }
+
+        if (filters.status) {
+            params.set('status', filters.status);
+        }
+
+        if (filters.priority) {
+            params.set('priority', filters.priority);
+        }
+
+        if (filters.tag) {
+            params.set('tag', filters.tag);
+        }
+
+        const query = params.toString();
+        const target = query ? `${window.location.pathname}?${query}` : window.location.pathname;
+        const current = `${window.location.pathname}${window.location.search}`;
+
+        if (current === target) {
+            return;
+        }
+
+        window.location.assign(target);
+    }
+
     function applyFilters() {
-        const project = projectFilter?.value || sessionStorage.getItem('boardProjectFilter') || '';
-        const priority = priorityFilter?.value || '';
-        const tag = tagFilter?.value || '';
+        const filters = getActiveBoardFilters();
 
         document.querySelectorAll('.issue-card').forEach((card) => {
-            const matchesProject = !project || card.dataset.projectId === project;
-            const matchesPriority = !priority || card.dataset.priority === priority;
-            const matchesTag = !tag || card.dataset.tags.split(',').filter(Boolean).includes(tag);
-            card.classList.toggle('is-hidden', !(matchesProject && matchesPriority && matchesTag));
+            card.classList.toggle('is-hidden', !cardMatchesFilters(card, filters));
         });
+
+        updateColumnCounts();
     }
 
     function upsertCard(html) {
@@ -577,6 +660,17 @@ export function initIssuesBoard() {
         invalidateIssueCache(newCard.dataset.id);
 
         const columnBody = document.querySelector(`.board-column-body[data-status="${newCard.dataset.status}"]`);
+        if (!columnBody) {
+            invalidateIssueCache(newCard.dataset.id);
+            return;
+        }
+
+        if (!cardMatchesFilters(newCard)) {
+            invalidateIssueCache(newCard.dataset.id);
+            closeModal();
+            return;
+        }
+
         const firstCard = columnBody.querySelector('.issue-card');
         if (firstCard) {
             columnBody.insertBefore(newCard, firstCard);
@@ -652,12 +746,11 @@ export function initIssuesBoard() {
         openIssue('/issues/create');
     });
 
-    projectFilter?.addEventListener('change', (event) => {
-        syncBoardProjectFilter(event.target.value);
+    document.querySelectorAll('[data-board-filter]').forEach((select) => {
+        select.addEventListener('change', () => {
+            navigateWithBoardFilters();
+        });
     });
-
-    priorityFilter?.addEventListener('change', applyFilters);
-    tagFilter?.addEventListener('change', applyFilters);
 
     document.addEventListener('click', async (event) => {
         const quickBtn = event.target.closest('[data-action="quick-status"]');
@@ -696,6 +789,30 @@ export function initIssuesBoard() {
     });
 
     document.addEventListener('click', async (event) => {
+        if (event.target.closest('[data-action="detach-tag"]')) {
+            event.preventDefault();
+            event.stopPropagation();
+            const button = event.target.closest('[data-action="detach-tag"]');
+            const section = button.closest('.issue-tags-section');
+            if (!section || !modalBackdrop.classList.contains('is-open')) {
+                return;
+            }
+
+            const errorEl = section.querySelector('[data-error-for="tag"]');
+            if (errorEl) {
+                errorEl.textContent = '';
+            }
+
+            const response = await request(button.dataset.url, { method: 'DELETE' });
+
+            if (response.ok) {
+                syncTagResponse(await response.json());
+            } else if (errorEl) {
+                errorEl.textContent = 'Could not remove tag.';
+            }
+            return;
+        }
+
         if (event.target.closest('[data-action="pick-tag"]')) {
             event.preventDefault();
             event.stopPropagation();
@@ -760,26 +877,6 @@ export function initIssuesBoard() {
 
         if (event.target.matches('[data-action="edit-issue"]')) {
             openIssue(event.target.dataset.url);
-        }
-
-        if (event.target.closest('[data-action="detach-tag"]')) {
-            const button = event.target.closest('[data-action="detach-tag"]');
-            const section = button.closest('.issue-tags-section');
-            const errorEl = section?.querySelector('[data-error-for="tag"]');
-            if (errorEl) {
-                errorEl.textContent = '';
-            }
-
-            const response = await request(button.dataset.url, { method: 'DELETE' });
-
-            if (response.ok) {
-                syncTagResponse(await response.json());
-                return;
-            }
-
-            if (errorEl) {
-                errorEl.textContent = 'Could not remove tag.';
-            }
         }
 
         if (event.target.matches('[data-action="delete-issue"]')) {
@@ -848,10 +945,6 @@ export function initIssuesBoard() {
             window.location.reload();
         }
     });
-
-    if (board) {
-        applyFilters();
-    }
 
     if (!board) {
         return;
@@ -980,7 +1073,7 @@ export function initIssuesBoard() {
                 }
 
                 card.dataset.status = newStatus;
-                updateColumnCounts();
+                applyFilters();
 
                 request(`/issues/${card.dataset.id}/status`, {
                     method: 'PATCH',
