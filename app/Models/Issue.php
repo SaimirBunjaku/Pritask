@@ -12,6 +12,9 @@ class Issue extends Model
 {
     use HasFactory;
 
+    /**
+     * Kanban workflow stages (extended beyond a simple open / in progress / closed model).
+     */
     public const STATUSES = [
         'todo' => 'To Do',
         'in_progress' => 'In Progress',
