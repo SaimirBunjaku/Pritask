@@ -16,7 +16,10 @@
                 <span class="text-muted">{{ $project->issues_count }} issue(s)</span>
                 <div class="card-actions">
                     <a href="{{ route('projects.edit', $project) }}" class="btn btn-secondary">Edit</a>
-                    <form action="{{ route('projects.destroy', $project) }}" method="POST" onsubmit="return confirm('Delete this project and all its issues?')">
+                    <form action="{{ route('projects.destroy', $project) }}" method="POST"
+                          data-confirm-delete
+                          data-confirm-title="Delete project?"
+                          data-confirm-message="This will permanently delete the project and all of its issues.">
                         @csrf
                         @method('DELETE')
                         <button type="submit" class="btn btn-danger">Delete</button>

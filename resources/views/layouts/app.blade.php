@@ -26,6 +26,8 @@
         </div>
     </div>
 
+    @include('partials.confirm-modal')
+
     @stack('scripts')
 </body>
 </html>
