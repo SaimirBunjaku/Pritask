@@ -77,9 +77,35 @@ h2 {
 }
 
 .navbar-brand {
+    display: flex;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
     font-weight: 600;
     font-size: 17px;
+    line-height: 1;
     color: var(--color-text);
+    white-space: nowrap;
+}
+
+.navbar-brand:hover {
+    color: var(--color-text);
+}
+
+.navbar-brand span {
+    display: block;
+    line-height: 1;
+}
+
+.navbar-logo {
+    display: block;
+    width: 28px;
+    height: 28px;
+    max-width: 28px;
+    max-height: 28px;
+    flex-shrink: 0;
 }
 
 .navbar-links {
