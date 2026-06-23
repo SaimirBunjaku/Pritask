@@ -49,6 +49,11 @@ class Issue extends Model
         return $this->belongsToMany(Tag::class);
     }
 
+    public function users(): BelongsToMany
+    {
+        return $this->belongsToMany(User::class);
+    }
+
     public function statusLabel(): string
     {
         return self::STATUSES[$this->status] ?? $this->status;
@@ -56,7 +61,7 @@ class Issue extends Model
 
     public function modalData(): array
     {
-        $this->loadMissing(['project', 'tags']);
+        $this->loadMissing(['project', 'tags', 'users']);
 
         return [
             'id' => $this->id,
@@ -72,6 +77,10 @@ class Issue extends Model
                 'id' => $tag->id,
                 'name' => $tag->name,
                 'color' => $tag->color ?? '#8e8e93',
+            ])->values()->all(),
+            'members' => $this->users->map(fn (User $user) => [
+                'id' => $user->id,
+                'name' => $user->name,
             ])->values()->all(),
             'editUrl' => route('issues.edit', $this),
             'deleteUrl' => route('issues.destroy', $this),

@@ -16,11 +16,18 @@ class DatabaseSeeder extends Seeder
 
     public function run(): void
     {
-        // User::factory(10)->create();
+        $this->call(DemoUserSeeder::class);
 
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $users = User::whereIn('email', [
+            'pritech@example.com',
+            'jordan@example.com',
+            'sam@example.com',
+        ])->get()->keyBy('email');
+
+        $users = collect([
+            $users['pritech@example.com'],
+            $users['jordan@example.com'],
+            $users['sam@example.com'],
         ]);
 
         $tags = collect([
@@ -36,12 +43,14 @@ class DatabaseSeeder extends Seeder
 
         $projects = [
             Project::factory()->create([
+                'user_id' => $users[0]->id,
                 'name' => 'Website Redesign',
                 'description' => 'Revamping the marketing site with a new design system and a faster checkout flow.',
                 'start_date' => now()->subWeeks(2),
                 'deadline' => now()->addMonths(2),
             ]),
             Project::factory()->create([
+                'user_id' => $users[1]->id,
                 'name' => 'Internal Tools Dashboard',
                 'description' => 'Dashboard for the support team to track and resolve customer requests.',
                 'start_date' => now()->subMonth(),
@@ -51,20 +60,29 @@ class DatabaseSeeder extends Seeder
 
         $statusSpread = ['todo', 'todo', 'in_progress', 'in_progress', 'blocked', 'qa_staging', 'qa_done', 'prod', 'prod', 'todo'];
 
-        foreach ($projects as $project) {
+        foreach ($projects as $projectIndex => $project) {
             $issues = Issue::factory()
                 ->count(10)
                 ->for($project)
                 ->sequence(...array_map(fn (string $status) => ['status' => $status], $statusSpread))
                 ->create();
 
-            foreach ($issues as $issue) {
+            foreach ($issues as $issueIndex => $issue) {
                 $issue->tags()->attach($tags->random(rand(0, 3))->pluck('id'));
 
-                Comment::factory()
-                    ->count(rand(0, 3))
-                    ->for($issue)
-                    ->create();
+                $issue->users()->attach(
+                    $users->random(rand(1, 2))->pluck('id')
+                );
+
+                for ($c = 0, $commentCount = rand(0, 3); $c < $commentCount; $c++) {
+                    $author = $users->random();
+                    Comment::factory()
+                        ->for($issue)
+                        ->create([
+                            'user_id' => $author->id,
+                            'author_name' => $author->name,
+                        ]);
+                }
             }
         }
     }

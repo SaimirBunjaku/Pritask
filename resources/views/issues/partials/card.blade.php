@@ -4,6 +4,7 @@
      data-status="{{ $issue->status }}"
      data-priority="{{ $issue->priority }}"
      data-tags="{{ $issue->tags->pluck('id')->implode(',') }}"
+     data-search-text="{{ strtolower($issue->title.' '.($issue->description ?? '')) }}"
      data-action="open-issue"
      data-url="{{ route('issues.show', $issue) }}"
      data-issue='@json($issue->modalData())'>

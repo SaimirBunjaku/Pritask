@@ -14,6 +14,8 @@
 
 @include('issues.partials.issue-tags', ['issue' => $issue, 'allTags' => $allTags])
 
+@include('issues.partials.issue-members', ['issue' => $issue, 'allUsers' => $allUsers])
+
 <p>{{ $issue->description ?? 'No description provided.' }}</p>
 
 @include('issues.partials.issue-comments', ['issue' => $issue])

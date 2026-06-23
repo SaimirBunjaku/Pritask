@@ -267,7 +267,10 @@ export function bindCustomSelectHandlers() {
     document.body.dataset.customSelectBound = 'true';
 
     document.addEventListener('click', (event) => {
-        if (!event.target.closest('.custom-select') && !event.target.closest('.custom-select-menu')) {
+        const clickedMenu = event.target.closest('.custom-select-menu');
+        const clickedWrapper = event.target.closest('.custom-select');
+
+        if (!clickedWrapper && !clickedMenu) {
             closeAllCustomSelects();
         }
 
@@ -275,6 +278,9 @@ export function bindCustomSelectHandlers() {
             event.preventDefault();
             event.stopPropagation();
             const wrapper = event.target.closest('.custom-select');
+            if (!wrapper) {
+                return;
+            }
             const menu = getCustomSelectMenu(wrapper);
             const trigger = wrapper.querySelector('.custom-select-trigger');
             const willOpen = menu.hidden;
@@ -285,6 +291,8 @@ export function bindCustomSelectHandlers() {
                 wrapper.classList.add('is-open');
                 trigger.setAttribute('aria-expanded', 'true');
                 openCustomSelectMenu(wrapper);
+            } else {
+                closeCustomSelect(wrapper);
             }
             return;
         }

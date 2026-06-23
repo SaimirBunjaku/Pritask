@@ -8,17 +8,24 @@ use App\Http\Requests\UpdateIssueRequest;
 use App\Models\Issue;
 use App\Models\Project;
 use App\Models\Tag;
+use App\Models\User;
+use App\Notifications\IssueAssignedNotification;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
 class IssueController extends Controller
 {
+    public function __construct()
+    {
+        $this->authorizeResource(Issue::class, 'issue');
+    }
+
     public function index(IndexIssueRequest $request)
     {
         $filters = $request->validated();
 
         $issues = Issue::query()
-            ->with(['project', 'tags'])
+            ->with(['project', 'tags', 'users'])
             ->when($filters['project'] ?? null, fn ($query, $projectId) => $query->where('project_id', $projectId))
             ->when($filters['status'] ?? null, fn ($query, $status) => $query->where('status', $status))
             ->when($filters['priority'] ?? null, fn ($query, $priority) => $query->where('priority', $priority))
@@ -26,11 +33,20 @@ class IssueController extends Controller
                 'tags',
                 fn ($tagQuery) => $tagQuery->where('tags.id', $tagId)
             ))
+            ->when($filters['search'] ?? null, function ($query, $search) {
+                $term = '%'.addcslashes($search, '%_\\').'%';
+
+                $query->where(function ($inner) use ($term) {
+                    $inner->where('title', 'like', $term)
+                        ->orWhere('description', 'like', $term);
+                });
+            })
             ->latest()
             ->get();
 
         $tags = Tag::orderBy('name')->get();
         $projects = Project::orderBy('name')->get();
+        $users = User::orderBy('name')->get(['id', 'name']);
 
         if ($request->wantsJson()) {
             return response()->json([
@@ -39,7 +55,7 @@ class IssueController extends Controller
             ]);
         }
 
-        return view('issues.index', compact('issues', 'tags', 'projects', 'filters'));
+        return view('issues.index', compact('issues', 'tags', 'projects', 'users', 'filters'));
     }
 
     public function create()
@@ -52,17 +68,18 @@ class IssueController extends Controller
     public function store(StoreIssueRequest $request)
     {
         $issue = Issue::create($request->validated());
-        $issue->load(['project', 'tags']);
+        $issue->load(['project', 'tags', 'users']);
 
         return view('issues.partials.card', compact('issue'));
     }
 
     public function show(Issue $issue)
     {
-        $issue->load(['project', 'tags']);
+        $issue->load(['project', 'tags', 'users']);
         $allTags = Tag::orderBy('name')->get();
+        $allUsers = User::orderBy('name')->get(['id', 'name']);
 
-        return view('issues.partials.details', compact('issue', 'allTags'));
+        return view('issues.partials.details', compact('issue', 'allTags', 'allUsers'));
     }
 
     public function edit(Issue $issue)
@@ -75,19 +92,21 @@ class IssueController extends Controller
     public function update(UpdateIssueRequest $request, Issue $issue)
     {
         $issue->update($request->validated());
-        $issue->load(['project', 'tags']);
+        $issue->load(['project', 'tags', 'users']);
 
         return view('issues.partials.card', compact('issue'));
     }
 
     public function updateStatus(Request $request, Issue $issue)
     {
+        $this->authorize('update', $issue);
+
         $validated = $request->validate([
             'status' => ['required', Rule::in(array_keys(Issue::STATUSES))],
         ]);
 
         $issue->update($validated);
-        $issue->load(['project', 'tags']);
+        $issue->load(['project', 'tags', 'users']);
 
         return response()->json([
             'status' => $issue->status,
@@ -107,6 +126,8 @@ class IssueController extends Controller
 
     public function attachTag(Issue $issue, Tag $tag)
     {
+        $this->authorize('update', $issue);
+
         if (! $issue->tags()->whereKey($tag->id)->exists()) {
             $issue->tags()->attach($tag);
         }
@@ -116,19 +137,56 @@ class IssueController extends Controller
 
     public function detachTag(Issue $issue, Tag $tag)
     {
+        $this->authorize('update', $issue);
+
         $issue->tags()->detach($tag);
 
         return $this->tagSyncResponse($issue);
     }
 
+    public function attachUser(Issue $issue, User $user)
+    {
+        $this->authorize('assignMembers', $issue);
+
+        if (! $issue->users()->whereKey($user->id)->exists()) {
+            $issue->users()->attach($user);
+
+            if ($user->id !== auth()->id()) {
+                $user->notify(new IssueAssignedNotification($issue, auth()->user()));
+            }
+        }
+
+        return $this->memberSyncResponse($issue);
+    }
+
+    public function detachUser(Issue $issue, User $user)
+    {
+        $this->authorize('assignMembers', $issue);
+
+        $issue->users()->detach($user);
+
+        return $this->memberSyncResponse($issue);
+    }
+
     private function tagSyncResponse(Issue $issue)
     {
-        $issue->load(['project', 'tags']);
+        $issue->load(['project', 'tags', 'users']);
         $allTags = Tag::orderBy('name')->get();
 
         return response()->json([
             'issueTags' => view('issues.partials.issue-tags', compact('issue', 'allTags'))->render(),
             'card' => view('issues.partials.card', compact('issue'))->render(),
+            'modalData' => $issue->modalData(),
+        ]);
+    }
+
+    private function memberSyncResponse(Issue $issue)
+    {
+        $issue->load(['project', 'tags', 'users']);
+        $allUsers = User::orderBy('name')->get(['id', 'name']);
+
+        return response()->json([
+            'issueMembers' => view('issues.partials.issue-members', compact('issue', 'allUsers'))->render(),
             'modalData' => $issue->modalData(),
         ]);
     }
