@@ -1,4 +1,5 @@
-import { clearFloatingMenuPosition, initCustomSelects, positionFloatingMenu, syncCustomSelect } from './custom-select';
+import { confirmAction } from './confirm-dialog';
+import { clearFloatingMenuPosition, closeAllCustomSelects, initCustomSelects, positionFloatingMenu, syncCustomSelect } from './custom-select';
 
 const TAG_PICKER_Z = 400;
 
@@ -252,8 +253,43 @@ export function initIssuesBoard() {
         `;
     }
 
+    function renderIssueCommentsSection(issueId) {
+        const id = escapeHtml(issueId);
+
+        return `
+            <div class="issue-comments-section"
+                 data-issue-id="${id}"
+                 data-comments-url="/issues/${id}/comments"
+                 data-comments-store-url="/issues/${id}/comments">
+                <label class="issue-comments-label">Comments</label>
+                <form class="issue-comment-form" data-comment-form action="/issues/${id}/comments" method="POST">
+                    <div class="form-group">
+                        <label for="comment-author-${id}">Your name</label>
+                        <input type="text" name="author_name" id="comment-author-${id}"
+                            class="form-control" autocomplete="name" placeholder="Jane Doe">
+                        <p class="field-error" data-error-for="author_name"></p>
+                    </div>
+                    <div class="form-group">
+                        <label for="comment-body-${id}">Comment</label>
+                        <textarea name="body" id="comment-body-${id}"
+                            class="form-control issue-comment-textarea"
+                            rows="4" placeholder="Write a comment…"></textarea>
+                        <p class="field-error" data-error-for="body"></p>
+                    </div>
+                    <button type="submit" class="btn btn-primary issue-comment-submit" data-comment-submit>Add comment</button>
+                </form>
+                <div class="issue-comments-list" data-comments-list role="list"></div>
+                <p class="issue-comments-status text-muted" data-comments-loading>Loading comments&hellip;</p>
+                <p class="issue-comments-status text-muted" data-comments-empty hidden>No comments yet.</p>
+                <button type="button" class="btn btn-secondary issue-comments-load-more"
+                    data-action="load-more-comments" hidden>Load more comments</button>
+            </div>
+        `;
+    }
+
     function renderIssueDetails(issue) {
         const tagsSectionHtml = renderIssueTagsSection(issue.id, issue.tags || [], getAllTags());
+        const commentsSectionHtml = renderIssueCommentsSection(issue.id);
 
         const dueHtml = issue.dueDate
             ? `<span class="text-muted">Due ${escapeHtml(issue.dueDate)}</span>`
@@ -272,6 +308,7 @@ export function initIssuesBoard() {
             </div>
             ${tagsSectionHtml}
             <p>${escapeHtml(issue.description || 'No description provided.')}</p>
+            ${commentsSectionHtml}
             <div class="modal-actions">
                 <button type="button" class="btn btn-secondary" data-action="edit-issue" data-url="${escapeHtml(issue.editUrl)}">Edit</button>
                 <button type="button" class="btn btn-danger" data-action="delete-issue" data-id="${escapeHtml(issue.id)}" data-url="${escapeHtml(issue.deleteUrl)}">Delete</button>
@@ -350,10 +387,108 @@ export function initIssuesBoard() {
         modalBody.dataset.issueUrl = url;
         modalBackdrop.classList.add('is-open');
         initCustomSelects(modalBody);
+        initIssueComments(modalBody);
+    }
+
+    function setCommentsLoading(section, isLoading) {
+        section.querySelector('[data-comments-loading]').hidden = !isLoading;
+    }
+
+    function updateCommentsEmptyState(section) {
+        const list = section.querySelector('[data-comments-list]');
+        const empty = section.querySelector('[data-comments-empty]');
+        empty.hidden = list.children.length > 0;
+    }
+
+    function updateLoadMoreButton(section) {
+        const loadMoreBtn = section.querySelector('[data-action="load-more-comments"]');
+        loadMoreBtn.hidden = section.dataset.commentsHasMore !== 'true';
+    }
+
+    async function loadCommentsPage(section, page, { replace = false } = {}) {
+        const list = section.querySelector('[data-comments-list]');
+        const loadMoreBtn = section.querySelector('[data-action="load-more-comments"]');
+        const url = `${section.dataset.commentsUrl}?page=${page}`;
+
+        if (replace) {
+            setCommentsLoading(section, true);
+        } else {
+            loadMoreBtn.disabled = true;
+        }
+
+        try {
+            const response = await request(url);
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+
+            if (replace) {
+                list.innerHTML = data.html;
+            } else {
+                list.insertAdjacentHTML('beforeend', data.html);
+            }
+
+            section.dataset.commentsHasMore = data.hasMore ? 'true' : 'false';
+            section.dataset.commentsNextPage = String(data.nextPage ?? page + 1);
+
+            updateCommentsEmptyState(section);
+            updateLoadMoreButton(section);
+        } finally {
+            setCommentsLoading(section, false);
+            loadMoreBtn.disabled = false;
+        }
+    }
+
+    function initIssueComments(root) {
+        root.querySelectorAll('.issue-comments-section:not([data-comments-init])').forEach((section) => {
+            section.dataset.commentsInit = 'true';
+            section.dataset.commentsHasMore = 'false';
+            loadCommentsPage(section, 1, { replace: true });
+        });
+    }
+
+    async function submitCommentForm(form) {
+        const section = form.closest('.issue-comments-section');
+        const list = section?.querySelector('[data-comments-list]');
+        const submitBtn = form.querySelector('[data-comment-submit]');
+
+        if (!section || !list) {
+            return;
+        }
+
+        clearErrors(form);
+        submitBtn.disabled = true;
+
+        try {
+            const response = await request(section.dataset.commentsStoreUrl, {
+                method: 'POST',
+                body: new FormData(form),
+            });
+
+            if (response.status === 422) {
+                showErrors(form, (await response.json()).errors);
+                return;
+            }
+
+            if (!response.ok) {
+                return;
+            }
+
+            const data = await response.json();
+            list.insertAdjacentHTML('afterbegin', data.comment);
+            form.reset();
+            section.querySelector('[data-comments-empty]').hidden = true;
+        } finally {
+            submitBtn.disabled = false;
+        }
     }
 
     function closeModal() {
         closeAllTagPickers();
+        closeAllCustomSelects();
         modalBackdrop.classList.remove('is-open');
         window.setTimeout(() => {
             modalBody.innerHTML = '';
@@ -375,6 +510,7 @@ export function initIssuesBoard() {
                     if (modalBody.dataset.issueUrl === url) {
                         modalBody.innerHTML = html;
                         initCustomSelects(modalBody);
+                        initIssueComments(modalBody);
                     }
                 })
                 .catch(() => {});
@@ -392,6 +528,7 @@ export function initIssuesBoard() {
                 if (modalBody.dataset.issueUrl === url) {
                     modalBody.innerHTML = html;
                     initCustomSelects(modalBody);
+                    initIssueComments(modalBody);
                 }
             })
             .catch(() => {
@@ -481,6 +618,10 @@ export function initIssuesBoard() {
     });
 
     document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape' && document.getElementById('confirm-modal-backdrop')?.hidden === false) {
+            return;
+        }
+
         if (event.key === 'Escape' && modalBackdrop.classList.contains('is-open')) {
             closeModal();
         }
@@ -604,6 +745,15 @@ export function initIssuesBoard() {
     }, true);
 
     modalBody.addEventListener('click', async (event) => {
+        if (event.target.closest('[data-action="load-more-comments"]')) {
+            const section = event.target.closest('.issue-comments-section');
+            const nextPage = Number.parseInt(section?.dataset.commentsNextPage || '2', 10);
+            if (section && section.dataset.commentsHasMore === 'true') {
+                await loadCommentsPage(section, nextPage);
+            }
+            return;
+        }
+
         if (event.target.matches('[data-action="close-modal"]')) {
             closeModal();
         }
@@ -633,16 +783,23 @@ export function initIssuesBoard() {
         }
 
         if (event.target.matches('[data-action="delete-issue"]')) {
-            if (!window.confirm('Delete this issue?')) {
+            const button = event.target;
+            const confirmed = await confirmAction({
+                title: 'Delete issue?',
+                message: 'This issue will be permanently deleted.',
+                confirmLabel: 'Delete issue',
+            });
+
+            if (!confirmed) {
                 return;
             }
 
-            const response = await request(event.target.dataset.url, { method: 'DELETE' });
+            const response = await request(button.dataset.url, { method: 'DELETE' });
 
             if (response.ok) {
-                invalidateIssueCache(event.target.dataset.id);
+                invalidateIssueCache(button.dataset.id);
                 if (board) {
-                    document.querySelector(`.issue-card[data-id="${event.target.dataset.id}"]`)?.remove();
+                    document.querySelector(`.issue-card[data-id="${button.dataset.id}"]`)?.remove();
                     updateColumnCounts();
                     closeModal();
                 } else {
@@ -653,6 +810,13 @@ export function initIssuesBoard() {
     });
 
     modalBody.addEventListener('submit', async (event) => {
+        const commentForm = event.target.closest('[data-comment-form]');
+        if (commentForm) {
+            event.preventDefault();
+            await submitCommentForm(commentForm);
+            return;
+        }
+
         const form = event.target.closest('[data-issue-form]');
         if (!form) {
             return;

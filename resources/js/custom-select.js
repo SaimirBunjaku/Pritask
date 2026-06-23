@@ -6,6 +6,8 @@ function escapeHtml(value) {
         .replace(/"/g, '&quot;');
 }
 
+const CUSTOM_SELECT_Z = 300;
+
 export function clearFloatingMenuPosition(menu) {
     delete menu.dataset.lockedWidth;
     menu.style.position = '';
@@ -45,7 +47,7 @@ function measureMenuWidth(trigger, menu) {
     return measuredWidth;
 }
 
-export function positionFloatingMenu(trigger, menu, { repositionOnly = false, zIndex = 300 } = {}) {
+export function positionFloatingMenu(trigger, menu, { repositionOnly = false, zIndex = CUSTOM_SELECT_Z } = {}) {
     const rect = trigger.getBoundingClientRect();
 
     menu.style.position = 'fixed';
@@ -73,17 +75,70 @@ export function positionFloatingMenu(trigger, menu, { repositionOnly = false, zI
     }
 }
 
-function closeAllCustomSelects(except = null) {
-    document.querySelectorAll('.custom-select.is-open').forEach((wrapper) => {
-        if (wrapper === except) {
-            return;
-        }
+function ensureSelectId(wrapper) {
+    if (!wrapper.dataset.selectId) {
+        wrapper.dataset.selectId = `custom-select-${Math.random().toString(36).slice(2, 9)}`;
+    }
 
-        wrapper.classList.remove('is-open');
-        const menu = wrapper.querySelector('.custom-select-menu');
-        menu.hidden = true;
-        clearFloatingMenuPosition(menu);
-        wrapper.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+    return wrapper.dataset.selectId;
+}
+
+function getCustomSelectMenu(wrapper) {
+    const selectId = wrapper.dataset.selectId;
+    if (selectId) {
+        const floated = document.querySelector(`.custom-select-menu[data-owner="${selectId}"]`);
+        if (floated) {
+            return floated;
+        }
+    }
+
+    return wrapper.querySelector('.custom-select-menu');
+}
+
+function getCustomSelectWrapperFromMenu(menu) {
+    const ownerId = menu?.dataset.owner;
+    if (ownerId) {
+        return document.querySelector(`.custom-select[data-select-id="${ownerId}"]`);
+    }
+
+    return menu?.closest('.custom-select');
+}
+
+function openCustomSelectMenu(wrapper) {
+    const trigger = wrapper.querySelector('.custom-select-trigger');
+    const menu = getCustomSelectMenu(wrapper);
+    const selectId = ensureSelectId(wrapper);
+
+    menu.dataset.owner = selectId;
+    document.body.appendChild(menu);
+    menu.classList.add('custom-select-menu-floating');
+    positionFloatingMenu(trigger, menu);
+}
+
+function closeCustomSelect(wrapper) {
+    wrapper.classList.remove('is-open');
+    const menu = getCustomSelectMenu(wrapper);
+    if (!menu) {
+        return;
+    }
+
+    menu.hidden = true;
+    menu.classList.remove('custom-select-menu-floating');
+    clearFloatingMenuPosition(menu);
+    delete menu.dataset.owner;
+
+    if (menu.parentElement !== wrapper) {
+        wrapper.appendChild(menu);
+    }
+
+    wrapper.querySelector('.custom-select-trigger')?.setAttribute('aria-expanded', 'false');
+}
+
+export function closeAllCustomSelects(except = null) {
+    document.querySelectorAll('.custom-select.is-open').forEach((wrapper) => {
+        if (wrapper !== except) {
+            closeCustomSelect(wrapper);
+        }
     });
 }
 
@@ -194,13 +249,13 @@ export function initCustomSelects(root = document) {
     root.querySelectorAll('select.select-enhanced:not([data-enhanced])').forEach(enhanceSelect);
 }
 
-function repositionOpenFloatingMenus() {
+function repositionOpenCustomSelects() {
     document.querySelectorAll('.custom-select.is-open').forEach((wrapper) => {
-        positionFloatingMenu(
-            wrapper.querySelector('.custom-select-trigger'),
-            wrapper.querySelector('.custom-select-menu'),
-            { repositionOnly: true },
-        );
+        const trigger = wrapper.querySelector('.custom-select-trigger');
+        const menu = getCustomSelectMenu(wrapper);
+        if (trigger && menu) {
+            positionFloatingMenu(trigger, menu, { repositionOnly: true });
+        }
     });
 }
 
@@ -212,7 +267,7 @@ export function bindCustomSelectHandlers() {
     document.body.dataset.customSelectBound = 'true';
 
     document.addEventListener('click', (event) => {
-        if (!event.target.closest('.custom-select')) {
+        if (!event.target.closest('.custom-select') && !event.target.closest('.custom-select-menu')) {
             closeAllCustomSelects();
         }
 
@@ -220,7 +275,7 @@ export function bindCustomSelectHandlers() {
             event.preventDefault();
             event.stopPropagation();
             const wrapper = event.target.closest('.custom-select');
-            const menu = wrapper.querySelector('.custom-select-menu');
+            const menu = getCustomSelectMenu(wrapper);
             const trigger = wrapper.querySelector('.custom-select-trigger');
             const willOpen = menu.hidden;
 
@@ -229,7 +284,7 @@ export function bindCustomSelectHandlers() {
             if (willOpen) {
                 wrapper.classList.add('is-open');
                 trigger.setAttribute('aria-expanded', 'true');
-                positionFloatingMenu(trigger, menu);
+                openCustomSelectMenu(wrapper);
             }
             return;
         }
@@ -238,15 +293,18 @@ export function bindCustomSelectHandlers() {
             event.preventDefault();
             event.stopPropagation();
             const option = event.target.closest('[data-action="pick-custom-select"]');
-            const wrapper = option.closest('.custom-select');
-            const select = wrapper.querySelector('select');
+            const menu = option.closest('.custom-select-menu');
+            const wrapper = getCustomSelectWrapperFromMenu(menu);
+            const select = wrapper?.querySelector('select');
+            if (!select) {
+                return;
+            }
+
             const previous = select.value;
 
             select.value = option.dataset.value;
             syncCustomSelect(wrapper);
-            closeAllCustomSelects();
-            wrapper.classList.remove('is-open');
-            wrapper.querySelector('.custom-select-menu').hidden = true;
+            closeCustomSelect(wrapper);
 
             if (previous !== select.value) {
                 select.dispatchEvent(new Event('change', { bubbles: true }));
@@ -254,13 +312,13 @@ export function bindCustomSelectHandlers() {
         }
     });
 
-    window.addEventListener('resize', repositionOpenFloatingMenus);
+    window.addEventListener('resize', repositionOpenCustomSelects);
 
     document.addEventListener('scroll', (event) => {
         if (event.target.closest('.custom-select-menu') || event.target.closest('.tag-picker-menu')) {
             return;
         }
 
-        repositionOpenFloatingMenus();
+        repositionOpenCustomSelects();
     }, true);
 }

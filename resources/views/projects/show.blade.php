@@ -3,46 +3,35 @@
 @section('title', $project->name)
 
 @section('content')
-    <div class="page-header">
-        <h1>{{ $project->name }}</h1>
-        <div class="card-actions">
-            <a href="{{ route('issues.index') }}?project={{ $project->id }}" class="btn btn-secondary">View on board</a>
-            <a href="{{ route('projects.edit', $project) }}" class="btn btn-secondary">Edit</a>
-            <form action="{{ route('projects.destroy', $project) }}" method="POST" onsubmit="return confirm('Delete this project and all its issues?')">
-                @csrf
-                @method('DELETE')
-                <button type="submit" class="btn btn-danger">Delete</button>
-            </form>
+    <div id="project-show" data-project-show data-current-url="{{ route('projects.show', $project) }}">
+        <div class="page-header">
+            <div class="page-header-title project-switcher">
+                <label for="project-switcher" class="visually-hidden">Switch project</label>
+                <select id="project-switcher" class="project-switcher-select select-enhanced">
+                    @foreach ($projects as $item)
+                        <option value="{{ route('projects.show', $item) }}" @selected($item->id === $project->id)>
+                            {{ $item->name }}
+                        </option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="card-actions" id="project-show-actions">
+                <a href="{{ route('issues.index') }}?project={{ $project->id }}" class="btn btn-secondary" data-project-board-link>View on board</a>
+                <a href="{{ route('projects.edit', $project) }}" class="btn btn-secondary" data-project-edit-link>Edit</a>
+                <form action="{{ route('projects.destroy', $project) }}" method="POST"
+                      data-confirm-delete
+                      data-confirm-title="Delete project?"
+                      data-confirm-message="This will permanently delete the project and all of its issues."
+                      data-project-delete-form>
+                    @csrf
+                    @method('DELETE')
+                    <button type="submit" class="btn btn-danger">Delete</button>
+                </form>
+            </div>
+        </div>
+
+        <div id="project-show-body">
+            @include('projects.partials.show-body', ['project' => $project])
         </div>
     </div>
-
-    <p class="text-muted">{{ $project->description }}</p>
-
-    @if ($project->start_date || $project->deadline)
-        <p class="text-muted">
-            @if ($project->start_date) Starts {{ $project->start_date->format('M j, Y') }} @endif
-            @if ($project->deadline) &middot; Due {{ $project->deadline->format('M j, Y') }} @endif
-        </p>
-    @endif
-
-    <div class="section-header">
-        <h2>Issues</h2>
-        <span class="text-muted">{{ $project->issues->count() }} total</span>
-    </div>
-
-    <div class="project-issues-list" id="project-issues-list">
-        @forelse ($project->issues as $issue)
-            @include('issues.partials.project-issue-row', ['issue' => $issue])
-        @empty
-            <p class="empty-state">No issues in this project yet.</p>
-        @endforelse
-    </div>
 @endsection
-
-@push('scripts')
-    <script>
-        if (window.location.search.includes('project=')) {
-            sessionStorage.setItem('boardProjectFilter', new URLSearchParams(window.location.search).get('project'));
-        }
-    </script>
-@endpush

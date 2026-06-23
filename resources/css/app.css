@@ -150,7 +150,78 @@ h2 {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 16px;
     margin-bottom: 28px;
+}
+
+.page-header-title {
+    min-width: 0;
+    flex: 1;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.project-switcher .custom-select {
+    display: block;
+    width: max-content;
+    max-width: 100%;
+    min-width: 0;
+}
+
+.project-switcher .custom-select-trigger {
+    padding: 0 28px 0 0;
+    min-height: auto;
+    border: none;
+    border-radius: 0;
+    background: transparent;
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.2;
+    box-shadow: none;
+}
+
+.project-switcher .custom-select-label {
+    font-size: 28px;
+    font-weight: 600;
+    line-height: 1.2;
+}
+
+.project-switcher .custom-select-trigger:hover,
+.project-switcher .custom-select.is-open .custom-select-trigger {
+    border: none;
+    box-shadow: none;
+    color: var(--color-accent);
+}
+
+.project-switcher .custom-select-chevron {
+    width: 14px;
+    height: 14px;
+    color: var(--color-text-muted);
+}
+
+.project-switcher .custom-select-menu {
+    min-width: 240px;
+    max-width: min(420px, calc(100vw - 48px));
+}
+
+#project-show.is-switching #project-show-body {
+    opacity: 0.55;
+    pointer-events: none;
+    transition: opacity 0.15s ease;
+}
+
+#project-show-body {
+    transition: opacity 0.15s ease;
 }
 
 .card {
@@ -394,6 +465,104 @@ textarea.form-control {
 .issue-tags-section {
     margin-bottom: 16px;
     overflow: visible;
+}
+
+.issue-comments-section {
+    width: 100%;
+    margin: 24px 0 0;
+    padding-top: 24px;
+    border-top: 1px solid var(--color-border);
+    box-sizing: border-box;
+}
+
+.issue-comments-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    margin-bottom: 16px;
+}
+
+.issue-comment-form {
+    width: 100%;
+    margin-bottom: 24px;
+}
+
+.issue-comment-form .form-group {
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.issue-comment-form .form-control {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+.issue-comment-textarea {
+    resize: vertical;
+    min-height: 100px;
+}
+
+.issue-comment-submit {
+    width: 100%;
+}
+
+.issue-comments-list {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    width: 100%;
+    margin-bottom: 16px;
+}
+
+.issue-comment {
+    width: 100%;
+    padding: 16px 18px;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.03);
+    border: 1px solid var(--color-border);
+    box-sizing: border-box;
+}
+
+.issue-comment-header {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 6px;
+}
+
+.issue-comment-author {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.issue-comment-time {
+    font-size: 12px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.issue-comment-body {
+    margin: 0;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-text);
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.issue-comments-status {
+    margin: 0 0 8px;
+    font-size: 13px;
+}
+
+.issue-comments-load-more {
+    width: 100%;
+    margin-top: 8px;
 }
 
 .custom-select {
@@ -653,8 +822,10 @@ textarea.form-control {
 
 .project-issue-actions {
     display: flex;
-    flex-direction: column;
-    justify-content: center;
+    flex-direction: row;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
     gap: 6px;
     flex-shrink: 0;
 }
@@ -721,6 +892,7 @@ textarea.form-control {
     box-shadow: 0 12px 32px rgba(0, 0, 0, 0.12);
 }
 
+.custom-select-menu-floating,
 .tag-picker-menu-floating {
     z-index: 400;
 }
@@ -948,6 +1120,54 @@ textarea.form-control {
     visibility: hidden;
     transition: opacity 0.2s ease, visibility 0.2s ease;
     z-index: 100;
+}
+
+.confirm-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    z-index: 500;
+}
+
+.confirm-backdrop[hidden] {
+    display: none;
+}
+
+.confirm-dialog {
+    background: var(--color-surface);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 400px;
+    padding: 24px;
+    box-shadow: 0 24px 60px rgba(0, 0, 0, 0.25);
+}
+
+.confirm-dialog-title {
+    margin: 0 0 8px;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.confirm-dialog-message {
+    margin: 0 0 20px;
+    font-size: 14px;
+    line-height: 1.5;
+    color: var(--color-text-muted);
+}
+
+.confirm-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+body.confirm-open {
+    overflow: hidden;
 }
 
 .modal-backdrop.is-open {
