@@ -38,17 +38,24 @@ class DatabaseSeeder extends Seeder
             Project::factory()->create([
                 'name' => 'Website Redesign',
                 'description' => 'Revamping the marketing site with a new design system and a faster checkout flow.',
+                'start_date' => now()->subWeeks(2),
+                'deadline' => now()->addMonths(2),
             ]),
             Project::factory()->create([
                 'name' => 'Internal Tools Dashboard',
                 'description' => 'Dashboard for the support team to track and resolve customer requests.',
+                'start_date' => now()->subMonth(),
+                'deadline' => now()->addMonths(3),
             ]),
         ];
 
+        $statusSpread = ['todo', 'todo', 'in_progress', 'in_progress', 'blocked', 'qa_staging', 'qa_done', 'prod', 'prod', 'todo'];
+
         foreach ($projects as $project) {
             $issues = Issue::factory()
-                ->count(rand(4, 9))
+                ->count(10)
                 ->for($project)
+                ->sequence(...array_map(fn (string $status) => ['status' => $status], $statusSpread))
                 ->create();
 
             foreach ($issues as $issue) {
