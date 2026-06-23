@@ -16,6 +16,8 @@
 
 <p>{{ $issue->description ?? 'No description provided.' }}</p>
 
+@include('issues.partials.issue-comments', ['issue' => $issue])
+
 <div class="modal-actions">
     <button type="button" class="btn btn-secondary" data-action="edit-issue" data-url="{{ route('issues.edit', $issue) }}">Edit</button>
     <button type="button" class="btn btn-danger" data-action="delete-issue" data-id="{{ $issue->id }}" data-url="{{ route('issues.destroy', $issue) }}">Delete</button>

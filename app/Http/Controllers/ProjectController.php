@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\StoreProjectRequest;
 use App\Http\Requests\UpdateProjectRequest;
 use App\Models\Project;
+use Illuminate\Http\Request;
 
 class ProjectController extends Controller
 {
@@ -29,11 +30,25 @@ class ProjectController extends Controller
             ->with('success', 'Project created.');
     }
 
-    public function show(Project $project)
+    public function show(Request $request, Project $project)
     {
         $project->load(['issues' => fn ($query) => $query->with(['project', 'tags'])->latest()]);
 
-        return view('projects.show', compact('project'));
+        if ($request->wantsJson()) {
+            return response()->json([
+                'title' => $project->name,
+                'url' => route('projects.show', $project),
+                'projectId' => $project->id,
+                'bodyHtml' => view('projects.partials.show-body', compact('project'))->render(),
+                'boardUrl' => route('issues.index', ['project' => $project->id]),
+                'editUrl' => route('projects.edit', $project),
+                'deleteUrl' => route('projects.destroy', $project),
+            ]);
+        }
+
+        $projects = Project::orderBy('name')->get(['id', 'name']);
+
+        return view('projects.show', compact('project', 'projects'));
     }
 
     public function edit(Project $project)
